@@ -1,0 +1,113 @@
+substitutions:
+  sensorname: multisensor
+  entitysub: Multisensor
+  domain: !secret domain
+
+esphome:
+  name: $sensorname
+
+esp8266:
+  board: nodemcuv2
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: !secret api_key
+
+ota:
+  password: !secret ota_password
+
+wifi:
+  ssid: !secret iot_ssid
+  password: !secret iot_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: $sensorname
+    password: !secret esphome_password
+
+  use_address: $sensorname.$domain
+  manual_ip:
+    static_ip: 192.168.0.11
+    subnet: 255.255.255.0
+    gateway: 192.168.0.1
+    dns1: 192.168.0.1
+
+captive_portal:
+
+# Device config
+i2c:           #AHT20 is i2c
+  scan: true
+
+sensor:
+  - platform: wifi_signal
+    name: "$entitysub WiFi Signal"
+    update_interval: 60s
+
+  # Temperature / Humidity
+  - platform: aht10   #Also for AHT20
+    temperature:
+      name: "$entitysub Temperature"
+      device_class: temperature
+    humidity:
+      name: "$entitysub Humidity"
+      device_class: humidity
+    update_interval: 60s
+
+  # Analog Light Level
+  - platform: adc
+    pin: A0
+    name: "$entitysub Light Level"
+    unit_of_measurement: lux
+    device_class: illuminance
+    update_interval: 60s
+    filters:
+    # this is a relative value - not true lux - adjust as needed for your install
+    #  - lambda: |-
+    #      return (2800/x) - 2700;
+      - lambda: |-
+          return (x / 10000.0) * -2000000.0 + 200;
+
+binary_sensor:
+  # Photoresistor module DO light level
+  - platform: gpio
+    pin: D7
+    name: "$entitysub Digital Light Level"
+
+  # RCWL-0516 Motion
+  - platform: gpio
+    pin: D6
+    name: "$entitysub Motion"
+    device_class: motion
+
+# RGB LED
+light:
+  - platform: rgb
+    id: led_1
+    name: "$entitysub Sensor LED"
+    default_transition_length: 100ms
+    red: red
+    green: green
+    blue: blue
+
+# LED output
+output:
+  - platform: esp8266_pwm
+    id: red
+    pin: D3
+    max_power: 80%
+  - platform: esp8266_pwm
+    id: green
+    pin: D0
+    max_power: 80%
+  - platform: esp8266_pwm
+    id: blue
+    pin: D5
+    max_power: 80%
+
+switch:
+  - platform: restart
+    name: "$entitysub Sensor Restart"
